@@ -36,3 +36,4 @@ export class WalletLedger {
 
 export const WalletLedgerSchema = SchemaFactory.createForClass(WalletLedger);
 WalletLedgerSchema.index({ userId: 1, createdAt: -1 });
+WalletLedgerSchema.index({ userId: 1, type: 1, source: 1, refId: 1 }, { unique: true, sparse: true });
