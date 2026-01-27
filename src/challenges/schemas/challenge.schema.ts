@@ -32,6 +32,9 @@ export class Challenge {
   @Prop()
   endsAt?: Date;
 
+  @Prop({ trim: true, index: true })
+  focusDimension?: 'waste' | 'transport' | 'energy' | 'water' | 'consumption';
+
   createdAt: Date;
   updatedAt: Date;
 }

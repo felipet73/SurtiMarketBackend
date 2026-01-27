@@ -9,6 +9,8 @@ import {
 import { QUESTIONNAIRE_V1 } from './questionnaire.v1';
 import { WalletService } from '../wallet/wallet.service';
 
+
+
 @Injectable()
 export class SustainabilityService {
   constructor(
@@ -132,31 +134,112 @@ export class SustainabilityService {
   }
 
   async getMyProfile(userId: string) {
-    const uid = new Types.ObjectId(userId);
-    const profile = await this.profileModel.findOne({ userId: uid }).exec();
-    if (!profile) throw new NotFoundException('Perfil sostenible no creado');
+        const uid = new Types.ObjectId(userId);
+        const profile = await this.profileModel.findOne({ userId: uid }).exec();
+        if (!profile) throw new NotFoundException('Perfil sostenible no creado');
 
-    const baseline = profile.baseline;
-    const latest = profile.latest;
+        const baseline = profile.baseline;
+        const latest = profile.latest;
 
-    const delta = latest.overallScore - baseline.overallScore;
+        const delta = latest.overallScore - baseline.overallScore;
 
-    return {
-      overallScore: profile.overallScore,
-      dimensionScores: profile.dimensionScores,
-      baseline: {
-        overallScore: baseline.overallScore,
-        dimensionScores: baseline.dimensionScores,
-        submittedAt: baseline.submittedAt,
-      },
-      latest: {
-        overallScore: latest.overallScore,
-        dimensionScores: latest.dimensionScores,
-        submittedAt: latest.submittedAt,
-      },
-      progress: {
-        deltaOverall: delta,
-      },
-    };
-  }
+        return {
+        overallScore: profile.overallScore,
+        dimensionScores: profile.dimensionScores,
+        baseline: {
+            overallScore: baseline.overallScore,
+            dimensionScores: baseline.dimensionScores,
+            submittedAt: baseline.submittedAt,
+        },
+        latest: {
+            overallScore: latest.overallScore,
+            dimensionScores: latest.dimensionScores,
+            submittedAt: latest.submittedAt,
+        },
+        progress: {
+            deltaOverall: delta,
+        },
+        };
+    }
+
+    async getLowestDimension(userId: string) {
+     const profile = await this.getMyProfile(userId); // ya devuelve dimensionScores
+        const dims = profile.dimensionScores;
+
+        const entries = Object.entries(dims) as Array<
+            ['waste' | 'transport' | 'energy' | 'water' | 'consumption', number]
+        >;
+
+        // Orden por score ascendente. Si empate, rompe empate por orden fijo.
+        const order: Record<string, number> = {
+            waste: 1, transport: 2, energy: 3, water: 4, consumption: 5,
+        };
+
+        entries.sort((a, b) => (a[1] - b[1]) || (order[a[0]] - order[b[0]]));
+
+        return { focusDimension: entries[0][0], focusScore: entries[0][1], profile };
+    }
+
+    async applyWeeklyImprovement(params: {
+        userId: string;
+        dimension: DimensionKey;
+        reasonRefId: string; // challengeId
+        }) {
+        const uid = new Types.ObjectId(params.userId);
+
+        const profile = await this.profileModel.findOne({ userId: uid }).exec();
+        if (!profile) throw new NotFoundException('Perfil sostenible no creado');
+
+        // Incremento +1 con tope 10
+        const current = profile.dimensionScores[params.dimension] ?? 1;
+        const next = Math.min(10, current + 1);
+
+        // Si ya está en 10, no hacemos cambios
+        if (next === current) {
+            return {
+            changed: false,
+            overallScore: profile.overallScore,
+            dimensionScores: profile.dimensionScores,
+            reason: 'dimension_already_max',
+            };
+        }
+
+        // Actualizar dimensión
+        const newDimensionScores = { ...profile.dimensionScores, [params.dimension]: next };
+
+        // Recalcular promedio simple (sin pesos)
+        const avg =
+            (newDimensionScores.waste +
+            newDimensionScores.transport +
+            newDimensionScores.energy +
+            newDimensionScores.water +
+            newDimensionScores.consumption) /
+            5;
+
+        const newOverall = Math.max(1, Math.min(10, Math.round(avg)));
+
+        profile.dimensionScores = newDimensionScores as any;
+        profile.overallScore = newOverall;
+
+        // Actualizar latest como “evento semanal” (no cuestionario)
+        // Mantiene answers/version, pero ajusta scores y fecha
+        profile.latest = {
+            ...profile.latest,
+            submittedAt: new Date(),
+            overallScore: newOverall,
+            dimensionScores: newDimensionScores as any,
+        } as any;
+
+        await profile.save();
+
+        return {
+            changed: true,
+            overallScore: profile.overallScore,
+            dimensionScores: profile.dimensionScores,
+            improvedDimension: params.dimension,
+            from: current,
+            to: next,
+            reasonRefId: params.reasonRefId,
+        };
+    }
 }

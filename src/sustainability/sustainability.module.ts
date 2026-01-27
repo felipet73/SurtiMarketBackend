@@ -13,6 +13,7 @@ import { WalletModule } from '../wallet/wallet.module';
     MongooseModule.forFeature([{ name: SustainabilityProfile.name, schema: SustainabilityProfileSchema }]),
     WalletModule,
   ],
+  exports: [SustainabilityService],
   controllers: [SustainabilityController],
   providers: [SustainabilityService],
 })

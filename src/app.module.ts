@@ -9,7 +9,7 @@ import { WalletModule } from './wallet/wallet.module';
 import { OrdersModule } from './orders/orders.module';
 import { ChallengesModule } from './challenges/challenges.module';
 import { SustainabilityModule } from './sustainability/sustainability.module';
-
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -28,6 +28,7 @@ import { SustainabilityModule } from './sustainability/sustainability.module';
     OrdersModule,
     ChallengesModule,
     SustainabilityModule,
+    DashboardModule,
   ],
 })
 export class AppModule {}
