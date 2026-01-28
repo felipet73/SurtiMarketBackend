@@ -15,6 +15,8 @@ import { ChallengeInstance, ChallengeInstanceDocument } from './schemas/challeng
 import { ChallengeTemplate, ChallengeTemplateDocument } from './schemas/challenge-template.schema';
 import { QuizSubmission, QuizSubmissionDocument } from './schemas/quiz-submission.schema';
 
+import { GroupProgressService } from '../groups/group-progress.service';
+
 @Injectable()
 export class ChallengesService {
   constructor(
@@ -26,7 +28,8 @@ export class ChallengesService {
     @InjectModel(QuizSubmission.name) private subModel: Model<QuizSubmissionDocument>,
     private readonly walletService: WalletService,
     private readonly sustainabilityService: SustainabilityService,    
-    private readonly quizGen: QuizGeneratorService,    
+    private readonly quizGen: QuizGeneratorService,
+    private readonly groupProgressService: GroupProgressService,
   ) {}
 
   private now() {
@@ -298,6 +301,10 @@ export class ChallengesService {
       reasonRefId: instanceId,
     });
 
+    await this.groupProgressService.onMemberWeeklyQuizPassed({
+      userId,
+      dimension: instance.focusDimension,
+    });
     // Marcar rewardGranted
     created.rewardGranted = true;
     created.ecoCoinsGranted = reward;

@@ -10,6 +10,10 @@ import { OrdersModule } from './orders/orders.module';
 import { ChallengesModule } from './challenges/challenges.module';
 import { SustainabilityModule } from './sustainability/sustainability.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { CommunityModule } from './community/community.module';
+import { SocialModule } from './social/social.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { GroupsModule } from './groups/groups.module';
 
 @Module({
   imports: [
@@ -29,6 +33,10 @@ import { DashboardModule } from './dashboard/dashboard.module';
     ChallengesModule,
     SustainabilityModule,
     DashboardModule,
+    CommunityModule,
+    SocialModule,
+    NotificationsModule,
+    GroupsModule,
   ],
 })
 export class AppModule {}

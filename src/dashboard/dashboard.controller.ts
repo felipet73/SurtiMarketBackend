@@ -11,4 +11,12 @@ export class DashboardController {
   awareness(@Req() req: any) {
     return this.dashboard.getAwarenessSection(req.user.sub);
   }
+
+   @Get('progress/weekly')
+    @UseGuards(JwtAuthGuard)
+    weeklyProgress(@Req() req: any) {
+      return this.dashboard.getWeeklyProgress(req.user.sub);
+    }
+
+
 }

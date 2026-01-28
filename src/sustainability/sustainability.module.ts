@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { SustainabilityController } from './sustainability.controller';
 import { SustainabilityService } from './sustainability.service';
@@ -7,6 +7,7 @@ import {
   SustainabilityProfileSchema,
 } from './schemas/sustainability-profile.schema';
 import { WalletModule } from '../wallet/wallet.module';
+
 
 @Module({
   imports: [

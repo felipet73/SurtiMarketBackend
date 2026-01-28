@@ -16,6 +16,8 @@ import { OpenAiService } from '../ai/openai.service';
 
 import { QuizSubmission, QuizSubmissionSchema } from './schemas/quiz-submission.schema';
 
+import { GroupsModule } from '../groups/groups.module';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -28,6 +30,7 @@ import { QuizSubmission, QuizSubmissionSchema } from './schemas/quiz-submission.
     ]),
     WalletModule,
     SustainabilityModule,
+    GroupsModule,
   ],
   controllers: [ChallengesController],
   providers: [ChallengesService, QuizGeneratorService, OpenAiService],
