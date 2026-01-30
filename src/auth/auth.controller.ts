@@ -44,7 +44,7 @@ export class AuthController {
   // Registro por defecto: CLIENTE
   @Post('register')
   register(@Body() dto: RegisterDto) {
-    return this.auth.registerClient(dto.fullName, dto.email, dto.password);
+    return this.auth.registerClient(dto.fullName, dto.username, dto.email, dto.password);
   }
 
   @Post('login')

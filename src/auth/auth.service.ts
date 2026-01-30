@@ -33,10 +33,11 @@ export class AuthService {
   return this.jwt.sign(payload, { expiresIn } as any);
 }
 
-  async registerClient(fullName: string, email: string, password: string) {
+  async registerClient(fullName: string, username: string, email: string, password: string) {
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await this.users.createUser({
       fullName,
+      username,
       email,
       passwordHash,
       roles: [Role.CLIENT],

@@ -20,7 +20,8 @@ export class UsersService {
 
   async createUser(params: {
     fullName: string;
-    email: string;
+    username: string;
+    email: string;    
     passwordHash: string;
     roles?: Role[];
   }) {
@@ -30,6 +31,7 @@ export class UsersService {
     const created = new this.userModel({
       fullName: params.fullName,
       email: params.email.toLowerCase(),
+      username: params.username,
       passwordHash: params.passwordHash,
       roles: params.roles?.length ? params.roles : [Role.CLIENT],
       isActive: true,

@@ -20,6 +20,7 @@ export class AdminController {
 
     const user = await this.usersService.createUser({
       fullName: dto.fullName,
+      username: dto.username,
       email: dto.email,
       passwordHash,
       roles: [dto.role],
@@ -28,6 +29,7 @@ export class AdminController {
     return {
       id: user.id,
       fullName: user.fullName,
+      username: user.username,
       email: user.email,
       roles: user.roles,
       isActive: user.isActive,
