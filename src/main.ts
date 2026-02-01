@@ -21,8 +21,16 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
   app.useStaticAssets(join(process.cwd(), 'public'), {
     prefix: '/public',
+    setHeaders: (res) => {
+      // ✅ permite que el frontend (8100) use imágenes del backend (3000)
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      // opcional: caching
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    },
   });
 
   await app.listen(process.env.PORT || 3000);

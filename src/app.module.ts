@@ -14,6 +14,8 @@ import { CommunityModule } from './community/community.module';
 import { SocialModule } from './social/social.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { GroupsModule } from './groups/groups.module';
+import { PuzzleModule } from './puzzle/puzzle.module';
+import { StreakModule } from './streak/streak.module';
 
 @Module({
   imports: [
@@ -37,6 +39,8 @@ import { GroupsModule } from './groups/groups.module';
     SocialModule,
     NotificationsModule,
     GroupsModule,
+    PuzzleModule,
+    StreakModule,
   ],
 })
 export class AppModule {}

@@ -10,6 +10,7 @@ import { QuizSubmission, QuizSubmissionSchema } from 'src/challenges/schemas/qui
 import { ChallengeInstance, ChallengeInstanceSchema } from 'src/challenges/schemas/challenge-instance.schema';
 import { WalletLedger, WalletLedgerSchema } from 'src/wallet/schemas/wallet-ledger.schema';
 import { SustainabilityModule } from '../sustainability/sustainability.module';
+import { OpenAiModule } from '../ai/openai.module';
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { SustainabilityModule } from '../sustainability/sustainability.module';
       { name: ChallengeInstance.name, schema: ChallengeInstanceSchema },
       { name: WalletLedger.name, schema: WalletLedgerSchema },        
     ]),
-    SustainabilityModule    
+    SustainabilityModule,
+    OpenAiModule,
   ],
   controllers: [DashboardController],
   providers: [DashboardService, OpenAiService],

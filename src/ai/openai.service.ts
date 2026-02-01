@@ -103,4 +103,19 @@ export class OpenAiService {
 
     return { mimeType: 'image/png', base64: b64 };
   }
+
+
+  async generatePuzzleImageBuffer(params: { prompt: string; size?: '256x256'|'512x512'|'1024x1024' }) {
+    const img = await this.client.images.generate({
+      model: process.env.OPENAI_IMAGE_MODEL ?? 'gpt-image-1',
+      prompt: params.prompt,
+      size: '1024x1024',
+      output_format: 'png',
+    });
+
+    const b64 = (img as any).data?.[0]?.b64_json;
+    if (!b64) throw new Error('No se recibió imagen en base64');
+    return Buffer.from(b64, 'base64');
+  }
+
 }
