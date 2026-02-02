@@ -33,6 +33,10 @@ export class AuthController {
     return {
       id: user.id,
       fullName: user.fullName,
+      username: user.username,
+      displayName: user?.displayName ?? '',
+      avatarUrl: user?.avatarUrl ?? '',
+      privacy: user.privacy,
       email: user.email,
       roles: user.roles,
       isActive: user.isActive,

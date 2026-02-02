@@ -86,4 +86,97 @@ export class SocialService {
       },
     });
   }
+
+  async getMyFriends(userId: string) {
+    const uid = new Types.ObjectId(userId);
+
+    // 1) Traer todas las relaciones donde el usuario participa
+    const rels = await this.friendshipModel
+      .find({
+        $or: [{ requesterId: uid }, { addresseeId: uid }],
+      })
+      .select('requesterId addresseeId status createdAt updatedAt')
+      .lean()
+      .exec();
+
+    // 2) Separar por tipo
+    const accepted = rels.filter(r => r.status === FriendshipStatus.ACCEPTED);
+    const pendingIncoming = rels.filter(
+      r => r.status === FriendshipStatus.PENDING && String(r.addresseeId) === String(uid),
+    );
+    const pendingOutgoing = rels.filter(
+      r => r.status === FriendshipStatus.PENDING && String(r.requesterId) === String(uid),
+    );
+
+    // 3) Obtener IDs de usuarios "del otro lado"
+    const otherIdsAccepted = accepted.map(r =>
+      String(r.requesterId) === String(uid) ? r.addresseeId : r.requesterId,
+    );
+
+    const otherIdsIncoming = pendingIncoming.map(r => r.requesterId);
+    const otherIdsOutgoing = pendingOutgoing.map(r => r.addresseeId);
+
+    // Unificar para 1 sola consulta a users
+    const allOtherIds = Array.from(
+      new Set([
+        ...otherIdsAccepted.map(String),
+        ...otherIdsIncoming.map(String),
+        ...otherIdsOutgoing.map(String),
+      ]),
+    ).map(id => new Types.ObjectId(id));
+
+    const users = allOtherIds.length
+      ? await this.userModel
+          .find({ _id: { $in: allOtherIds } })
+          .select('_id displayName username avatarUrl') // <-- ajusta aquí
+          .lean()
+          .exec()
+      : [];
+
+    const userMap = new Map(users.map(u => [String(u._id), u]));
+
+    // 4) Armar respuesta para front
+    const friends = accepted.map(r => {
+      const friendId = String(r.requesterId) === String(uid) ? r.addresseeId : r.requesterId;
+      return {
+        friendshipId: String((r as any)._id ?? ''), // si no seleccionaste _id, quítalo o inclúyelo
+        since: r.updatedAt ?? r.createdAt,
+        user: this.normalizeUser(userMap.get(String(friendId))),
+      };
+    });
+
+    const incoming = pendingIncoming.map(r => ({
+      friendshipId: String((r as any)._id ?? ''),
+      requestedAt: r.createdAt,
+      fromUser: this.normalizeUser(userMap.get(String(r.requesterId))),
+    }));
+
+    const outgoing = pendingOutgoing.map(r => ({
+      friendshipId: String((r as any)._id ?? ''),
+      requestedAt: r.createdAt,
+      toUser: this.normalizeUser(userMap.get(String(r.addresseeId))),
+    }));
+
+    return {
+      totals: {
+        friends: friends.length,
+        pendingIncoming: incoming.length,
+        pendingOutgoing: outgoing.length,
+      },
+      friends,
+      pendingIncoming: incoming,
+      pendingOutgoing: outgoing,
+    };
+  }
+
+  normalizeUser(u: any) {
+    if (!u) return null;
+    return {
+      id: String(u._id),
+      displayName: u.displayName ?? u.username ?? u.fullName ?? 'Usuario',
+      username: u.username ?? null,
+      avatarUrl: u.avatarUrl ?? null, // ajusta si tu campo se llama distinto
+    };
+  }
+  
 }
