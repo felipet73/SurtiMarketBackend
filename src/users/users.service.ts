@@ -82,4 +82,44 @@ export class UsersService {
         items,
     };
     }
+
+  async updateProfile(
+    id: string,
+    updates: {
+      fullName?: string;
+      username?: string;
+      displayName?: string;
+      avatarUrl?: string;
+      privacy?: Record<string, any>;
+      email?: string;
+      roles?: Role[];
+      isActive?: boolean;
+    },
+  ) {
+    const setUpdates: Record<string, any> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined) setUpdates[key] = value;
+    }
+
+    if (setUpdates.email) {
+      const email = String(setUpdates.email).toLowerCase();
+      const exists = await this.userModel.findOne({ email, _id: { $ne: id } }).exec();
+      if (exists) throw new ConflictException('Email ya registrado');
+      setUpdates.email = email;
+    }
+
+    if (setUpdates.username) {
+      const exists = await this.userModel
+        .findOne({ username: setUpdates.username, _id: { $ne: id } })
+        .exec();
+      if (exists) throw new ConflictException('Username ya registrado');
+    }
+
+    const user = await this.userModel
+      .findByIdAndUpdate(id, { $set: setUpdates }, { new: true })
+      .exec();
+
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    return user;
+  }
 }
