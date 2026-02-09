@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import type { UpdateResult } from 'mongodb';
 import { Wallet, WalletDocument } from './schemas/wallet.schema';
 import { WalletLedger, WalletLedgerDocument, LedgerType } from './schemas/wallet-ledger.schema';
 
@@ -72,11 +73,37 @@ export class WalletService {
     return { ecoCoinsBalance: updated.ecoCoinsBalance };
   }
 
-  // Útil para pruebas / admin / retos (puedes protegerlo luego)
+  // Util para pruebas / admin / retos (puedes protegerlo luego)
   async earnEcoCoins(params: { userId: string; amount: number; source: string; refId?: string; note?: string }) {
     if (params.amount <= 0) throw new BadRequestException('amount inválido');
 
     const uid = new Types.ObjectId(params.userId);
+
+    if (params.refId) {
+      const refId = new Types.ObjectId(params.refId);
+      const res: UpdateResult = await this.ledgerModel
+        .updateOne(
+          { userId: uid, type: LedgerType.EARN, source: params.source, refId },
+          {
+            $setOnInsert: {
+              userId: uid,
+              type: LedgerType.EARN,
+              amount: params.amount,
+              source: params.source,
+              refId,
+              note: params.note,
+            },
+          },
+          { upsert: true },
+        )
+        .exec();
+
+      const wasInserted = (res.upsertedCount ?? 0) > 0 || !!res.upsertedId;
+      if (!wasInserted) {
+        const wallet = await this.getOrCreate(params.userId);
+        return { ecoCoinsBalance: wallet.ecoCoinsBalance };
+      }
+    }
 
     const updated = await this.walletModel
       .findOneAndUpdate(
@@ -88,14 +115,16 @@ export class WalletService {
 
     if (!updated) throw new NotFoundException('Wallet no encontrada');
 
-    await this.ledgerModel.create({
-      userId: uid,
-      type: LedgerType.EARN,
-      amount: params.amount,
-      source: params.source,
-      refId: params.refId ? new Types.ObjectId(params.refId) : undefined,
-      note: params.note,
-    });
+    if (!params.refId) {
+      await this.ledgerModel.create({
+        userId: uid,
+        type: LedgerType.EARN,
+        amount: params.amount,
+        source: params.source,
+        refId: params.refId ? new Types.ObjectId(params.refId) : undefined,
+        note: params.note,
+      });
+    }
 
     return { ecoCoinsBalance: updated.ecoCoinsBalance };
   }

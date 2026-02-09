@@ -3,6 +3,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { UserStreak, UserStreakDocument } from './schemas/user-streak.schema';
 import { getLocalISODate, getWeekDaysSundayStart, addDaysIso } from './utils/streak-dates';
+import { GroupProgressService } from '../groups/group-progress.service';
+import { getWeekAndDateKey } from '../ecoimpact/utils/week.util';
 
 type DayStatus = 'logged' | 'missed' | 'future';
 
@@ -12,6 +14,7 @@ export class StreakService {
 
   constructor(
     @InjectModel(UserStreak.name) private streakModel: Model<UserStreakDocument>,
+    private readonly groupProgress: GroupProgressService,
   ) {}
 
   async markToday(userId: string) {
@@ -36,6 +39,32 @@ export class StreakService {
         { userId: new Types.ObjectId(userId) },
         { $set: { bestStreak: computed.streakBest } },
       );
+    }
+
+    await this.groupProgress.recalcWeeklyStreakPointsForGroup({
+      userId,
+      todayIso: today,
+    });
+
+    const weekKey = getWeekAndDateKey().weekKey;
+    if (computed.streakCurrent >= 3 && hasLastNDaysInWeek(3, today, computed.loggedDates)) {
+      await this.groupProgress.addPoints({
+        userId,
+        points: 10,
+        eventKey: `STREAK_BONUS_3:${weekKey}:${userId}`,
+        source: 'STREAK_BONUS_3',
+        weekKey,
+      });
+    }
+
+    if (computed.weekLoggedCount === 7) {
+      await this.groupProgress.addPoints({
+        userId,
+        points: 25,
+        eventKey: `STREAK_BONUS_7:${weekKey}:${userId}`,
+        source: 'STREAK_BONUS_7',
+        weekKey,
+      });
     }
 
     return computed;
@@ -120,4 +149,15 @@ function computeBestStreak(loggedDates: string[]): number {
     }
   }
   return best;
+}
+
+function hasLastNDaysInWeek(n: number, todayIso: string, loggedDates: string[]) {
+  const logged = new Set(loggedDates);
+  const weekDays = getWeekDaysSundayStart(todayIso);
+  const weekSet = new Set(weekDays);
+  for (let i = 0; i < n; i++) {
+    const iso = addDaysIso(todayIso, -i);
+    if (!weekSet.has(iso) || !logged.has(iso)) return false;
+  }
+  return true;
 }

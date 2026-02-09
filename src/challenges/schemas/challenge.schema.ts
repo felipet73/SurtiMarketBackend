@@ -26,6 +26,9 @@ export class Challenge {
   @Prop({ required: true, enum: ChallengeType })
   type: ChallengeType;
 
+  @Prop({ default: false })
+  isGroup?: boolean;
+
   @Prop()
   startsAt?: Date;
 

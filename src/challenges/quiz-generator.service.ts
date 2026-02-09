@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import { ChallengeTemplate, ChallengeTemplateDocument } from './schemas/challenge-template.schema';
 import { ChallengeInstance, ChallengeInstanceDocument } from './schemas/challenge-instance.schema';
 import { OpenAiService } from '../ai/openai.service';
-import { getISOWeekKey } from '../common/utils/week-key';
+import { getWeekAndDateKey } from '../ecoimpact/utils/week.util';
 
 @Injectable()
 export class QuizGeneratorService {
@@ -15,7 +15,7 @@ export class QuizGeneratorService {
   ) {}
 
   async generateWeeklyQuizInstance(params: { focusDimension: any; locale?: string }) {
-    const weekKey = getISOWeekKey(new Date());
+    const weekKey = getWeekAndDateKey().weekKey;
 
     const tpl = await this.tplModel.findOne({
       isActive: true,

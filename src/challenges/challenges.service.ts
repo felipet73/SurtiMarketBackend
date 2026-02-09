@@ -16,6 +16,7 @@ import { ChallengeTemplate, ChallengeTemplateDocument } from './schemas/challeng
 import { QuizSubmission, QuizSubmissionDocument } from './schemas/quiz-submission.schema';
 
 import { GroupProgressService } from '../groups/group-progress.service';
+import { EcoGroupMember, EcoGroupMemberDocument, MemberStatus } from '../groups/schemas/eco-group-member.schema';
 
 @Injectable()
 export class ChallengesService {
@@ -26,6 +27,7 @@ export class ChallengesService {
     @InjectModel(ChallengeInstance.name) private instModel: Model<ChallengeInstanceDocument>,
     @InjectModel(ChallengeTemplate.name) private tplModel: Model<ChallengeTemplateDocument>,
     @InjectModel(QuizSubmission.name) private subModel: Model<QuizSubmissionDocument>,
+    @InjectModel(EcoGroupMember.name) private memberModel: Model<EcoGroupMemberDocument>,
     private readonly walletService: WalletService,
     private readonly sustainabilityService: SustainabilityService,    
     private readonly quizGen: QuizGeneratorService,
@@ -72,6 +74,7 @@ export class ChallengesService {
 
     // Si ya cobró, devuelve idempotente
     if (uc.status === UserChallengeStatus.COMPLETED && uc.rewardGranted) {
+      await this.awardGroupPointsForChallenge({ userId, challenge, challengeId: cid });
       const wallet = await this.walletService.getOrCreate(userId);
       return { status: 'already_completed', ecoCoinsBalance: wallet.ecoCoinsBalance };
     }
@@ -101,6 +104,8 @@ export class ChallengesService {
     // Marcar que se otorgó recompensa
     uc.rewardGranted = true;
     await uc.save();    
+
+    await this.awardGroupPointsForChallenge({ userId, challenge, challengeId: cid });
 
     const wallet = await this.walletService.getOrCreate(userId);
     return { status: 'completed', rewardEcoCoins: challenge.rewardEcoCoins, ecoCoinsBalance: wallet.ecoCoinsBalance, profileUpdate };
@@ -241,6 +246,76 @@ export class ChallengesService {
     // Idempotencia: si ya existe submission user+instance => devolver y no volver a pagar
     const existing = await this.subModel.findOne({ userId: uid, instanceId: iid }).exec();
     if (existing) {
+      if (existing.passed) {
+        await this.groupProgressService.addPoints({
+          userId,
+          points: 40,
+          eventKey: `QUIZ_PASS:${instance.weekKey}:${userId}`,
+          source: 'QUIZ_PASS',
+          weekKey: undefined,
+        });
+
+        await this.groupProgressService.onMemberWeeklyQuizPassed({
+          userId,
+          dimension: instance.focusDimension,
+        });
+      }
+
+      if (existing.passed && !existing.rewardGranted) {
+        let reward = Number(instance.payload?.ecoCoinsReward);
+        if (!Number.isFinite(reward) || reward < 0) {
+          const tpl = await this.tplModel.findById(instance.templateId).exec();
+          reward = tpl?.rewardEcoCoins ?? 0;
+        }
+
+        await this.walletService.earnEcoCoins({
+          userId,
+          amount: reward,
+          source: 'WEEKLY_QUIZ',
+          refId: instanceId,
+          note: `Quiz semanal aprobado (${instance.focusDimension})`,
+        });
+
+        const profileUpdate = await this.sustainabilityService.applyWeeklyImprovement({
+          userId,
+          dimension: instance.focusDimension,
+          reasonRefId: instanceId,
+        });
+
+        await this.groupProgressService.onMemberWeeklyQuizPassed({
+          userId,
+          dimension: instance.focusDimension,
+        });
+
+        existing.rewardGranted = true;
+        existing.ecoCoinsGranted = reward;
+        await existing.save();
+
+        const wallet = await this.walletService.getOrCreate(userId);
+
+        return {
+          idempotent: true,
+          passed: existing.passed,
+          correctCount: existing.correctCount,
+          totalQuestions: existing.totalQuestions,
+          scorePercent: existing.scorePercent,
+          ecoCoinsGranted: reward,
+          rewardGranted: true,
+          ecoCoinsBalance: wallet.ecoCoinsBalance,
+          profileUpdate,
+        };
+      }
+
+      if (!existing.passed) {
+        await this.groupProgressService.addPoints({
+          userId,
+          points: 10,
+          eventKey: `QUIZ_FAIL:${instance.weekKey}:${userId}`,
+          source: 'QUIZ_FAIL',
+          weekKey: undefined,
+        });
+      }
+
       return {
         idempotent: true,
         passed: existing.passed,
@@ -267,6 +342,13 @@ export class ChallengesService {
 
     // Si no pasó, no otorgar nada
     if (!passed) {
+      await this.groupProgressService.addPoints({
+        userId,
+        points: 10,
+        eventKey: `QUIZ_FAIL:${instance.weekKey}:${userId}`,
+        source: 'QUIZ_FAIL',
+        weekKey: undefined,
+      });
       return {
         idempotent: false,
         passed,
@@ -312,6 +394,14 @@ export class ChallengesService {
 
     const wallet = await this.walletService.getOrCreate(userId);
 
+    await this.groupProgressService.addPoints({
+      userId,
+      points: 40,
+      eventKey: `QUIZ_PASS:${instance.weekKey}:${userId}`,
+      source: 'QUIZ_PASS',
+      weekKey: undefined,
+    });
+
     return {
       idempotent: false,
       passed,
@@ -323,5 +413,56 @@ export class ChallengesService {
       ecoCoinsBalance: wallet.ecoCoinsBalance,
       profileUpdate,
     };
+  }
+
+  private async awardGroupPointsForChallenge(params: {
+    userId: string;
+    challenge: ChallengeDocument;
+    challengeId: Types.ObjectId;
+  }) {
+    const challengeKey = `${params.challengeId.toString()}:${params.userId}`;
+
+    if (params.challenge.isGroup) {
+      await this.groupProgressService.addPoints({
+        userId: params.userId,
+        points: 10,
+        eventKey: `CHALLENGE_GROUP_MEMBER:${challengeKey}`,
+        source: 'CHALLENGE_GROUP_MEMBER',
+      });
+
+      const membership = await this.memberModel
+        .findOne({ userId: new Types.ObjectId(params.userId), status: MemberStatus.ACTIVE })
+        .lean()
+        .exec();
+      if (membership) {
+        const members = await this.memberModel
+          .find({ groupId: membership.groupId, status: MemberStatus.ACTIVE })
+          .select('userId')
+          .lean()
+          .exec();
+        const memberIds = members.map((m) => m.userId);
+        const completed = await this.userChallengeModel.countDocuments({
+          challengeId: params.challengeId,
+          userId: { $in: memberIds },
+          status: UserChallengeStatus.COMPLETED,
+        });
+        const target = Math.max(2, Math.ceil((members.length || 1) * 0.6));
+        if (completed >= target) {
+          await this.groupProgressService.addPoints({
+            userId: params.userId,
+            points: 60,
+            eventKey: `CHALLENGE_GROUP_BONUS:${params.challengeId.toString()}:${membership.groupId.toString()}`,
+            source: 'CHALLENGE_GROUP_BONUS',
+          });
+        }
+      }
+    } else {
+      await this.groupProgressService.addPoints({
+        userId: params.userId,
+        points: 20,
+        eventKey: `CHALLENGE:${challengeKey}`,
+        source: 'CHALLENGE',
+      });
+    }
   }
 }

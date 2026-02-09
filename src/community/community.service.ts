@@ -20,7 +20,7 @@ export class CommunityService {
 
   async searchUsers(requesterId: string, q: string) {
     const query = (q ?? '').trim();
-    if (query.length < 2) throw new BadRequestException('q muy corto');
+    if (query.length > 0 && query.length < 2) throw new BadRequestException('q muy corto');
 
     const isEmail = looksLikeEmail(query);
     const uid = new Types.ObjectId(requesterId);
@@ -32,15 +32,18 @@ export class CommunityService {
       'privacy.profileVisibility': { $ne: 'PRIVATE' },
     };
 
-    // buscar por email o username (case-insensitive)
-    if (isEmail) {
-      filter.email = query.toLowerCase();
-      filter['privacy.emailSearchable'] = true;
-    } else {
-      filter.$or = [
-        { username: new RegExp(`^${escapeRegExp(query)}`, 'i') },
-        { displayName: new RegExp(escapeRegExp(query), 'i') },
-      ];
+    // si no hay q, devolver usuarios con filtros base
+    if (query.length > 0) {
+      // buscar por email o username (case-insensitive)
+      if (isEmail) {
+        filter.email = query.toLowerCase();
+        filter['privacy.emailSearchable'] = true;
+      } else {
+        filter.$or = [
+          { username: new RegExp(`^${escapeRegExp(query)}`, 'i') },
+          { displayName: new RegExp(escapeRegExp(query), 'i') },
+        ];
+      }
     }
 
     const users = await this.userModel
