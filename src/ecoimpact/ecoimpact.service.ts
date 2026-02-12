@@ -11,6 +11,7 @@ import { Dimension, EcoImpactEventDto, EcoImpactEventType } from './dto/ecoimpac
 import { getWeekAndDateKey } from './utils/week.util';
 import { OpenAiEcoImpactService } from './openai/openai-ecoimpact.service';
 import { EcoGroup, EcoGroupDocument, GroupVisibility } from '../groups/schemas/eco-group.schema';
+import { getWeekDaysSundayStart } from '../streak/utils/streak-dates';
 
 type Radar5 = {
   waste: number;
@@ -465,54 +466,68 @@ export class EcoImpactService {
     const groupId = await this.getGroupIdForUser(userId);
 
     const wk = weekKey ?? getWeekAndDateKey().weekKey;
-    const snapshots = await this.dailyModel
-      .find({ weekKey: wk, groupId })
-      .sort({ dateKey: 1 })
-      .lean()
-      .exec();
+    const [pointsEvents, ecoEvents, groups] = await Promise.all([
+      this.pointsModel.find({ weekKey: wk }).select('groupId dateKey points').lean().exec(),
+      this.eventModel.find({ weekKey: wk }).select('groupId dateKey delta').lean().exec(),
+      this.groupModel.find({}).select('_id').lean().exec(),
+    ]);
 
-    if (snapshots.length) {
-      return {
-        inGroup: true,
-        weekKey: wk,
-        pointsSeries: snapshots.map((s) => ({ dateKey: s.dateKey, score: s.score })),
-        rankSeries: snapshots.map((s) => ({ dateKey: s.dateKey, rank: s.rank })),
-      };
+    const todayKey = getWeekAndDateKey().dateKey;
+    const weekDays = getWeekDaysSundayStart(todayKey);
+    const dateKeys = new Set<string>();
+    for (const d of weekDays) dateKeys.add(d);
+    for (const e of pointsEvents) if (e.dateKey) dateKeys.add(e.dateKey);
+    for (const e of ecoEvents) if (e.dateKey) dateKeys.add(e.dateKey);
+    const sortedDates = Array.from(dateKeys).sort();
+
+    const groupIds = groups.map((g) => g._id.toString());
+    const dailyByGroup = new Map<string, Map<string, number>>();
+    for (const gid of groupIds) dailyByGroup.set(gid, new Map());
+
+    for (const e of pointsEvents) {
+      if (!e.dateKey) continue;
+      const gid = e.groupId.toString();
+      const map = dailyByGroup.get(gid) ?? new Map();
+      map.set(e.dateKey, (map.get(e.dateKey) ?? 0) + (e.points ?? 0));
+      dailyByGroup.set(gid, map);
+    }
+    for (const e of ecoEvents) {
+      if (!e.dateKey) continue;
+      const gid = e.groupId.toString();
+      const map = dailyByGroup.get(gid) ?? new Map();
+      map.set(e.dateKey, (map.get(e.dateKey) ?? 0) + (e.delta ?? 0));
+      dailyByGroup.set(gid, map);
     }
 
-    const events = await this.eventModel
-      .find({ weekKey: wk, groupId })
-      .select('dateKey delta')
-      .lean()
-      .exec();
+    const cumulativeByGroup = new Map<string, number>();
+    for (const gid of groupIds) cumulativeByGroup.set(gid, 0);
 
-    const byDate = new Map<string, number>();
-    for (const e of events) {
-      const prev = byDate.get(e.dateKey) ?? 0;
-      byDate.set(e.dateKey, prev + (e.delta ?? 0));
-    }
+    const pointsSeries: Array<{ dateKey: string; score: number }> = [];
+    const rankSeries: Array<{ dateKey: string; rank: number }> = [];
+    for (const d of sortedDates) {
+      for (const gid of groupIds) {
+        const daily = dailyByGroup.get(gid)?.get(d) ?? 0;
+        cumulativeByGroup.set(gid, (cumulativeByGroup.get(gid) ?? 0) + daily);
+      }
 
-    const dates = Array.from(byDate.keys()).sort();
-    const pointsSeries = dates.map((d) => ({
-      dateKey: d,
-      score: Math.min(100, Math.round((byDate.get(d) ?? 0) * 10)),
-    }));
+      const scores = groupIds.map((gid) => ({
+        gid,
+        score: cumulativeByGroup.get(gid) ?? 0,
+      }));
+      scores.sort((a, b) => b.score - a.score);
 
-    if (!events.length) {
-      const { dateKey } = getWeekAndDateKey();
-      return {
-        inGroup: true,
-        weekKey: wk,
-        pointsSeries: [{ dateKey, score: 10 }],
-        rankSeries: [{ dateKey, rank: 1 }],
-      };
+      const myScore = cumulativeByGroup.get(groupId.toString()) ?? 0;
+      const myRank = scores.findIndex((s) => s.gid === groupId.toString()) + 1;
+
+      pointsSeries.push({ dateKey: d, score: Math.round(myScore) });
+      rankSeries.push({ dateKey: d, rank: myRank });
     }
 
     return {
       inGroup: true,
       weekKey: wk,
       pointsSeries,
-      rankSeries: [],
+      rankSeries,
     };
   }
 }

@@ -6,6 +6,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { ProductsService } from '../products/products.service';
 import { WalletService } from '../wallet/wallet.service';
 import { ECOCOIN_VALUE_USD } from '../common/constants/economy';
+import { GroupProgressService } from '../groups/group-progress.service';
 
 @Injectable()
 export class OrdersService {
@@ -13,6 +14,7 @@ export class OrdersService {
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     private readonly productsService: ProductsService,
     private readonly walletService: WalletService,
+    private readonly groupProgress: GroupProgressService,
   ) {}
 
   private round2(n: number) {
@@ -118,6 +120,13 @@ export class OrdersService {
         note: `Descuento en orden ${created._id.toString()}`,
       });
     }
+
+    await this.groupProgress.addPoints({
+      userId,
+      points: 10,
+      eventKey: `ORDER:${created._id.toString()}:${userId}`,
+      source: 'ORDER',
+    });
 
     return {
       orderId: created._id,

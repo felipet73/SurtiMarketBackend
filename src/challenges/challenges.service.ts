@@ -17,6 +17,7 @@ import { QuizSubmission, QuizSubmissionDocument } from './schemas/quiz-submissio
 
 import { GroupProgressService } from '../groups/group-progress.service';
 import { EcoGroupMember, EcoGroupMemberDocument, MemberStatus } from '../groups/schemas/eco-group-member.schema';
+import { getWeekAndDateKey } from '../ecoimpact/utils/week.util';
 
 @Injectable()
 export class ChallengesService {
@@ -246,6 +247,17 @@ export class ChallengesService {
     // Idempotencia: si ya existe submission user+instance => devolver y no volver a pagar
     const existing = await this.subModel.findOne({ userId: uid, instanceId: iid }).exec();
     if (existing) {
+      if (existing.passed) {
+        const { dateKey } = getWeekAndDateKey();
+        await this.groupProgressService.addPoints({
+          userId,
+          points: 2,
+          eventKey: `QUIZ_REPEAT:${instance.weekKey}:${dateKey}:${userId}`,
+          source: 'QUIZ_REPEAT',
+          dateKey,
+        });
+      }
+
       if (existing.passed) {
         await this.groupProgressService.addPoints({
           userId,
