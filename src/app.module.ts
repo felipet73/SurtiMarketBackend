@@ -17,6 +17,7 @@ import { GroupsModule } from './groups/groups.module';
 import { PuzzleModule } from './puzzle/puzzle.module';
 import { StreakModule } from './streak/streak.module';
 import { EcoImpactModule } from './ecoimpact/ecoimpact.module';
+import { CommentsModule } from './comments/comments.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { EcoImpactModule } from './ecoimpact/ecoimpact.module';
     PuzzleModule,
     StreakModule,
     EcoImpactModule,
+    CommentsModule,
   ],
 })
 export class AppModule {}
