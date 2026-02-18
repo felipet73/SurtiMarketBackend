@@ -1,8 +1,9 @@
-import { Body, Controller, Post, UseGuards, Get, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/role.decorator';
 import { Role } from '../common/enums/role.enum';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserByAdminDto } from './dto/update-user-by-admin.dto';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -48,5 +49,58 @@ export class AdminController {
       limit: limit ? Number(limit) : 20,
       q,
     });
+  }
+
+  @Get('users/:id')
+  async getEmployeeById(@Param('id') id: string) {
+    const user = await this.usersService.findEmployeeById(id);
+
+    return {
+      id: user.id,
+      fullName: user.fullName,
+      username: user.username,
+      displayName: user?.displayName ?? '',
+      avatarUrl: user?.avatarUrl ?? '',
+      privacy: user.privacy,
+      email: user.email,
+      roles: user.roles,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+
+  @Patch('users/:id')
+  async updateUser(@Param('id') id: string, @Body() dto: UpdateUserByAdminDto) {
+    const user = await this.usersService.updateUserByAdmin(id, dto);
+
+    return {
+      id: user.id,
+      fullName: user.fullName,
+      username: user.username,
+      displayName: user?.displayName ?? '',
+      avatarUrl: user?.avatarUrl ?? '',
+      privacy: user.privacy,
+      email: user.email,
+      roles: user.roles,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+
+  @Delete('users/:id')
+  async deleteUser(@Param('id') id: string) {
+    const user = await this.usersService.deactivateUserByAdmin(id);
+
+    return {
+      id: user.id,
+      fullName: user.fullName,
+      username: user.username,
+      email: user.email,
+      roles: user.roles,
+      isActive: user.isActive,
+      updatedAt: user.updatedAt,
+    };
   }
 }

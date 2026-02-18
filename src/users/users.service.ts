@@ -122,4 +122,66 @@ export class UsersService {
     if (!user) throw new NotFoundException('Usuario no encontrado');
     return user;
   }
+
+  async findEmployeeById(id: string) {
+    const user = await this.userModel
+      .findById(id)
+      .select('-passwordHash')
+      .exec();
+
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (!user.roles?.includes(Role.EMPLOYEE)) {
+      throw new NotFoundException('Empleado no encontrado');
+    }
+
+    return user;
+  }
+
+  async updateUserByAdmin(
+    id: string,
+    updates: {
+      fullName?: string;
+      username?: string;
+      displayName?: string;
+      avatarUrl?: string;
+      email?: string;
+      roles?: Role[];
+      isActive?: boolean;
+    },
+  ) {
+    const setUpdates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined) setUpdates[key] = value;
+    }
+
+    if (setUpdates.email) {
+      const email = String(setUpdates.email).toLowerCase();
+      const exists = await this.userModel.findOne({ email, _id: { $ne: id } }).exec();
+      if (exists) throw new ConflictException('Email ya registrado');
+      setUpdates.email = email;
+    }
+
+    if (setUpdates.username) {
+      const exists = await this.userModel
+        .findOne({ username: setUpdates.username, _id: { $ne: id } })
+        .exec();
+      if (exists) throw new ConflictException('Username ya registrado');
+    }
+
+    const user = await this.userModel
+      .findByIdAndUpdate(id, { $set: setUpdates }, { new: true })
+      .exec();
+
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    return user;
+  }
+
+  async deactivateUserByAdmin(id: string) {
+    const user = await this.userModel
+      .findByIdAndUpdate(id, { $set: { isActive: false } }, { new: true })
+      .exec();
+
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    return user;
+  }
 }
