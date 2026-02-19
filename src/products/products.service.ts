@@ -131,30 +131,63 @@ export class ProductsService {
   }
 
   async update(id: string, dto: UpdateProductDto) {
-    const update: any = { ...dto };
+    if (dto.sku) {
+      const exists = await this.productModel.findOne({ sku: dto.sku, _id: { $ne: id } }).exec();
+      if (exists) throw new ConflictException('SKU ya registrado');
+    }
 
-    // Normalizar fechas de promo/reward si vienen
+    const setUpdate: Record<string, unknown> = {};
+    const directFields: (keyof UpdateProductDto)[] = [
+      'name',
+      'brand',
+      'category',
+      'description',
+      'images',
+      'tags',
+      'sku',
+      'basePrice',
+      'stock',
+      'ecoScore',
+      'co2Kg',
+      'badges',
+      'ecoCoinsEnabled',
+      'maxEcoCoinsDiscountPercent',
+    ];
+
+    for (const field of directFields) {
+      const value = dto[field];
+      if (value !== undefined) {
+        setUpdate[field] = value;
+      }
+    }
+
     if (dto.promo) {
-      update.promo = {
-        active: dto.promo.active ?? false,
-        promoPrice: dto.promo.promoPrice,
-        startsAt: dto.promo.startsAt ? new Date(dto.promo.startsAt) : undefined,
-        endsAt: dto.promo.endsAt ? new Date(dto.promo.endsAt) : undefined,
-      };
+      if (dto.promo.active !== undefined) setUpdate['promo.active'] = dto.promo.active;
+      if (dto.promo.promoPrice !== undefined) setUpdate['promo.promoPrice'] = dto.promo.promoPrice;
+      if (dto.promo.startsAt !== undefined) {
+        setUpdate['promo.startsAt'] = dto.promo.startsAt ? new Date(dto.promo.startsAt) : null;
+      }
+      if (dto.promo.endsAt !== undefined) {
+        setUpdate['promo.endsAt'] = dto.promo.endsAt ? new Date(dto.promo.endsAt) : null;
+      }
     }
 
     if (dto.reward) {
-      update.reward = {
-        active: dto.reward.active ?? false,
-        costEcoCoins: dto.reward.costEcoCoins,
-        minHabitScore: dto.reward.minHabitScore,
-        minCategory: dto.reward.minCategory,
-        startsAt: dto.reward.startsAt ? new Date(dto.reward.startsAt) : undefined,
-        endsAt: dto.reward.endsAt ? new Date(dto.reward.endsAt) : undefined,
-      };
+      if (dto.reward.active !== undefined) setUpdate['reward.active'] = dto.reward.active;
+      if (dto.reward.costEcoCoins !== undefined) setUpdate['reward.costEcoCoins'] = dto.reward.costEcoCoins;
+      if (dto.reward.minHabitScore !== undefined) setUpdate['reward.minHabitScore'] = dto.reward.minHabitScore;
+      if (dto.reward.minCategory !== undefined) setUpdate['reward.minCategory'] = dto.reward.minCategory;
+      if (dto.reward.startsAt !== undefined) {
+        setUpdate['reward.startsAt'] = dto.reward.startsAt ? new Date(dto.reward.startsAt) : null;
+      }
+      if (dto.reward.endsAt !== undefined) {
+        setUpdate['reward.endsAt'] = dto.reward.endsAt ? new Date(dto.reward.endsAt) : null;
+      }
     }
 
-    const p = await this.productModel.findByIdAndUpdate(id, update, { new: true }).exec();
+    const p = await this.productModel
+      .findByIdAndUpdate(id, { $set: setUpdate }, { new: true, runValidators: true })
+      .exec();
     if (!p) throw new NotFoundException('Producto no encontrado');
 
     return { ...p.toObject(), effectivePrice: this.computeEffectivePrice(p) };
@@ -170,6 +203,62 @@ export class ProductsService {
     const p = await this.productModel.findByIdAndUpdate(id, { stock }, { new: true }).exec();
     if (!p) throw new NotFoundException('Producto no encontrado');
     return { ...p.toObject(), effectivePrice: this.computeEffectivePrice(p) };
+  }
+
+  async softDelete(id: string) {
+    const p = await this.productModel
+      .findByIdAndUpdate(id, { isActive: false }, { new: true, runValidators: true })
+      .exec();
+    if (!p) throw new NotFoundException('Producto no encontrado');
+    return { ...p.toObject(), effectivePrice: this.computeEffectivePrice(p) };
+  }
+
+  async stopPromotion(id: string) {
+    const p = await this.productModel
+      .findByIdAndUpdate(
+        id,
+        {
+          $set: { 'promo.active': false },
+          $unset: { 'promo.promoPrice': 1, 'promo.startsAt': 1, 'promo.endsAt': 1 },
+        },
+        { new: true, runValidators: true },
+      )
+      .exec();
+    if (!p) throw new NotFoundException('Producto no encontrado');
+    return { ...p.toObject(), effectivePrice: this.computeEffectivePrice(p) };
+  }
+
+  async setPromotionByDiscount(id: string, discountPercent: number, startsAt?: string, endsAt?: string) {
+    if (discountPercent < 0 || discountPercent > 100) {
+      throw new ConflictException('discountPercent debe estar entre 0 y 100');
+    }
+
+    const product = await this.productModel.findById(id).exec();
+    if (!product) throw new NotFoundException('Producto no encontrado');
+
+    const promoPrice = Number((product.basePrice * (1 - discountPercent / 100)).toFixed(2));
+
+    const p = await this.productModel
+      .findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            'promo.active': discountPercent > 0,
+            'promo.promoPrice': promoPrice,
+            'promo.startsAt': startsAt ? new Date(startsAt) : null,
+            'promo.endsAt': endsAt ? new Date(endsAt) : null,
+          },
+        },
+        { new: true, runValidators: true },
+      )
+      .exec();
+
+    if (!p) throw new NotFoundException('Producto no encontrado');
+    return {
+      ...p.toObject(),
+      discountPercent,
+      effectivePrice: this.computeEffectivePrice(p),
+    };
   }
 
   // Recomendaciones por reglas (sin IA)

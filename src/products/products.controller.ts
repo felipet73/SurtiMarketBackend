@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { SetPromoDiscountDto } from './dto/set-promo-discount.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/role.decorator';
@@ -69,11 +70,43 @@ export class ProductsController {
     return this.products.setActive(id, value === 'true');
   }
 
+  // ADMIN: activar producto (isActive=true)
+  @Patch(':id/activate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  activate(@Param('id') id: string) {
+    return this.products.setActive(id, true);
+  }
+
   // EMPLOYEE/ADMIN: stock
   @Patch(':id/stock')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.EMPLOYEE, Role.ADMIN)
   setStock(@Param('id') id: string, @Query('value') value: string) {
     return this.products.setStock(id, Number(value));
+  }
+
+  // ADMIN: soft delete (isActive=false)
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  softDelete(@Param('id') id: string) {
+    return this.products.softDelete(id);
+  }
+
+  // EMPLOYEE/ADMIN: detener promocion (desactivar y borrar precio promo)
+  @Patch(':id/promo/stop')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.EMPLOYEE, Role.ADMIN)
+  stopPromotion(@Param('id') id: string) {
+    return this.products.stopPromotion(id);
+  }
+
+  // EMPLOYEE/ADMIN: establecer promocion por porcentaje
+  @Patch(':id/promo/discount')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.EMPLOYEE, Role.ADMIN)
+  setPromotionByDiscount(@Param('id') id: string, @Body() dto: SetPromoDiscountDto) {
+    return this.products.setPromotionByDiscount(id, dto.discountPercent, dto.startsAt, dto.endsAt);
   }
 }

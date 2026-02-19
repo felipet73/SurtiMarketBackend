@@ -33,6 +33,32 @@ export class NotificationsService {
     }));
   }
 
+  async markNonActionableAsRead(userId: string) {
+    const uid = new Types.ObjectId(userId);
+    const actionableTypes: NotificationType[] = [
+      NotificationType.FRIEND_REQUEST,
+      NotificationType.GROUP_INVITE,
+    ];
+
+    const res = await this.notifModel.updateMany(
+      {
+        userId: uid,
+        status: NotificationStatus.UNREAD,
+        type: { $nin: actionableTypes },
+      },
+      {
+        $set: { status: NotificationStatus.READ },
+      },
+    );
+
+    return {
+      ok: true,
+      matched: res.matchedCount ?? 0,
+      modified: res.modifiedCount ?? 0,
+      excludedTypes: actionableTypes,
+    };
+  }
+
   async accept(userId: string, notificationId: string) {
     const uid = new Types.ObjectId(userId);
     const nid = new Types.ObjectId(notificationId);

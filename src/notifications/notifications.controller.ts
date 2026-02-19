@@ -24,4 +24,10 @@ export class NotificationsController {
   reject(@Req() req: any, @Param('id') id: string) {
     return this.notifications.reject(req.user.sub, id);
   }
+
+  @Post('me/read-non-actionable')
+  @UseGuards(JwtAuthGuard)
+  markNonActionableAsRead(@Req() req: any) {
+    return this.notifications.markNonActionableAsRead(req.user.sub);
+  }
 }
