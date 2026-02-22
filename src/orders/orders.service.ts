@@ -158,4 +158,84 @@ export class OrdersService {
 
     return { page: p, limit: l, total, items };
   }
+
+  async listAllOrders(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    userId?: string;
+  }) {
+    const page = Math.max(1, params?.page ?? 1);
+    const limit = Math.min(100, Math.max(1, params?.limit ?? 20));
+    const skip = (page - 1) * limit;
+
+    const filter: Record<string, unknown> = {};
+    if (params?.status) {
+      const status = params.status.toUpperCase();
+      const validStatuses = Object.values(OrderStatus);
+      if (!validStatuses.includes(status as OrderStatus)) {
+        throw new BadRequestException('status invalido');
+      }
+      filter.status = status;
+    }
+
+    if (params?.userId) {
+      if (!Types.ObjectId.isValid(params.userId)) {
+        throw new BadRequestException('userId invalido');
+      }
+      filter.userId = new Types.ObjectId(params.userId);
+    }
+
+    const [items, total] = await Promise.all([
+      this.orderModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.orderModel.countDocuments(filter).exec(),
+    ]);
+
+    return { page, limit, total, items };
+  }
+
+  async confirmOrder(orderId: string) {
+    return this.setStatus(orderId, OrderStatus.CONFIRMED);
+  }
+
+  async deliverOrder(orderId: string) {
+    return this.setStatus(orderId, OrderStatus.DELIVERED);
+  }
+
+  async cancelOrder(orderId: string) {
+    return this.setStatus(orderId, OrderStatus.CANCELLED);
+  }
+
+  private async setStatus(orderId: string, nextStatus: OrderStatus) {
+    const order = await this.orderModel.findById(orderId).exec();
+    if (!order) throw new NotFoundException('Pedido no encontrado');
+
+    const current = order.status;
+    if (current === nextStatus) {
+      return order;
+    }
+
+    const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
+      [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+      [OrderStatus.CONFIRMED]: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+      [OrderStatus.DELIVERED]: [],
+      [OrderStatus.CANCELLED]: [],
+    };
+
+    const allowed = allowedTransitions[current] ?? [];
+    if (!allowed.includes(nextStatus)) {
+      throw new BadRequestException(
+        `No se puede cambiar de ${current} a ${nextStatus}`,
+      );
+    }
+
+    order.status = nextStatus;
+    await order.save();
+    return order;
+  }
 }
