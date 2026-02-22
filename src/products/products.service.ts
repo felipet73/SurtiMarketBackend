@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Product, ProductDocument } from './schemas/product.schema';
@@ -259,6 +259,25 @@ export class ProductsService {
       discountPercent,
       effectivePrice: this.computeEffectivePrice(p),
     };
+  }
+
+  async addImages(id: string, urls: string[]) {
+    const cleaned = urls
+      .map((u) => u.trim())
+      .filter((u) => u.length > 0);
+
+    if (!cleaned.length) throw new BadRequestException('No hay urls para agregar');
+
+    const p = await this.productModel
+      .findByIdAndUpdate(
+        id,
+        { $push: { images: { $each: cleaned } } },
+        { new: true, runValidators: true },
+      )
+      .exec();
+
+    if (!p) throw new NotFoundException('Producto no encontrado');
+    return { ...p.toObject(), effectivePrice: this.computeEffectivePrice(p) };
   }
 
   // Recomendaciones por reglas (sin IA)

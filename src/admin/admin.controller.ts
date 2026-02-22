@@ -39,6 +39,7 @@ export class AdminController {
   }
 
   @Get('users')
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   async getUsers(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -52,6 +53,7 @@ export class AdminController {
   }
 
   @Get('users/:id')
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   async getEmployeeById(@Param('id') id: string) {
     const user = await this.usersService.findEmployeeById(id);
 
