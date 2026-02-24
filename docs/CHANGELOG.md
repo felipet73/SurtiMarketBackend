@@ -9,7 +9,7 @@ El formato sigue **Keep a Changelog** (adaptado al espanol) y versionado semanti
 ### Added
 - Documentacion tecnica estandarizada por modulos en `docs/modules/`.
 - ADRs iniciales para flujo de ramas y manejo de assets publicos.
-- Workflow CI basico en GitHub Actions (install + build).
+- Workflow CI basico en GitHub Actions (install + build).`r`n- Nota conflicto B: ajuste alterno del mismo bloque de changelog.
 
 ### Changed
 - README reemplazado por descripcion tecnica del backend y variables de entorno.
@@ -25,4 +25,5 @@ El formato sigue **Keep a Changelog** (adaptado al espanol) y versionado semanti
 ### Documentation
 - Guia de resolucion de conflictos documentada en `docs/conflicts.md`.
 - Documentacion por modulo/controlador generada automaticamente y preparada para enriquecimiento manual.
+
 
