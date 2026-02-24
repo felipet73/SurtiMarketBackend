@@ -1,98 +1,116 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# SurtiMarket Backend (NestJS + MongoDB)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend API para SurtiMarket: autenticacion, comunidad, retos semanales, ecoimpact, pedidos, wallet/ecocoins, dashboard del cliente y analytics/admin.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Arquitectura (resumen tecnico)
 
-## Description
+- Framework: `NestJS` (modular, controllers + services + guards)
+- Persistencia: `MongoDB` con `@nestjs/mongoose`
+- Auth: JWT (`JwtAuthGuard`) + `RolesGuard`
+- IA: OpenAI (generacion de quizzes, awareness/dashboard e imagenes)
+- Archivos publicos: carpeta `public/` servida por Nest con prefijo `/public`
+- Integraciones de dominio principales:
+  - `auth`, `users`, `social`, `groups`, `notifications`
+  - `challenges`, `streak`, `sustainability`, `ecoimpact`
+  - `products`, `orders`, `wallet`
+  - `dashboard`, `analytics`, `comments`
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Estructura del proyecto
 
-## Project setup
+- `src/` codigo fuente NestJS
+- `docs/` documentacion funcional/tecnica, ADRs, changelog y notas de release
+- `scripts/` seeds y utilidades operativas
+- `public/` assets publicos (imagenes subidas / generadas)
+- `test/` pruebas e2e (si aplica)
 
-```bash
-$ npm install
-```
+## Requisitos
 
-## Compile and run the project
+- Node.js 20+ (recomendado)
+- npm 10+
+- MongoDB (Atlas o local)
+- OpenAI API key (para modulos con IA)
 
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
+## Instalacion y ejecucion
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm install
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Desarrollo
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run start:dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Build
 
-## Resources
+```bash
+npm run build
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+### Produccion
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```bash
+npm run start:prod
+```
 
-## Support
+## Variables de entorno (minimas / recomendadas)
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Crear `.env` basado en `.env.example` y agregar variables del backend actual:
 
-## Stay in touch
+### Minimas
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+- `PORT` puerto del servidor (default 3000 / segun deploy)
+- `MONGO_URI` cadena de conexion MongoDB
+- `JWT_SECRET` secreto para firmar tokens JWT
 
-## License
+### IA / contenido (si se usan retos dashboard/quizzes)
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- `OPENAI_API_KEY`
+- `OPENAI_TEXT_MODEL` (opcional, ej. `gpt-4.1-mini`)
+- `OPENAI_IMAGE_MODEL` (opcional, ej. `gpt-image-1`)
+
+### URLs publicas (archivos)
+
+- `PUBLIC_BASE_URL` URL publica del backend (ej. `https://surtimarketbackend.onrender.com`)
+
+### Notas de deploy (Render)
+
+- La carpeta `public/` en Render puede ser almacenamiento efimero.
+- Para produccion estable, migrar uploads a storage externo (Cloudinary/S3/Supabase Storage).
+
+## Scripts utiles
+
+- `npm run start:dev` desarrollo
+- `npm run build` build Nest
+- `npm run seed:products` seed de productos
+- `npm run fix:product-images` corrige URLs de imagenes de productos en BD
+- `npx tsc --noEmit` validacion TS rapida
+
+## Calidad y flujo Git (resumen)
+
+- `main`: estable
+- `develop`: integracion
+- `release/x.y.z`: preparacion release
+- `feature/<nombre>`: trabajo de funcionalidad/documentacion
+
+Ver detalle en:
+- `docs/BRANCHING_AND_RELEASES.md`
+- `docs/CHANGELOG.md`
+- `docs/RELEASE_NOTES.md`
+
+## Documentacion de modulos
+
+Se genero documentacion base por modulo/controlador en:
+
+- `docs/modules/`
+
+Cada archivo incluye:
+- proposito
+- endpoints
+- DTOs referenciados
+- auth/guardas
+- ejemplos (base)
+- decisiones
+- pendientes
+
