@@ -4,9 +4,11 @@ import { Model, Types } from 'mongoose';
 import { OpenAiService } from '../ai/openai.service';
 import { getISOWeekKey } from '../common/utils/week-key';
 import { savePuzzleWeeklyAndSlice3x3 } from '../common/utils/puzzle-3x3-storage';
+import { savePuzzleWeeklyAndSlice3x3Cloudinary } from '../common/utils/puzzle-3x3-cloudinary';
 import { PuzzleWeeklyCache, PuzzleWeeklyCacheDocument } from './schemas/puzzle-weekly-cache.schema';
 import { UserWeeklyPuzzleProgress, UserWeeklyPuzzleProgressDocument } from './schemas/user-weekly-puzzle-progress.schema';
 import { WalletLedger, WalletLedgerDocument, LedgerType } from '../wallet/schemas/wallet-ledger.schema';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class PuzzleService {
@@ -15,6 +17,7 @@ export class PuzzleService {
     @InjectModel(UserWeeklyPuzzleProgress.name) private progressModel: Model<UserWeeklyPuzzleProgressDocument>,
     @InjectModel(WalletLedger.name) private ledgerModel: Model<WalletLedgerDocument>,
     private readonly openai: OpenAiService,
+    private readonly cloudinary: CloudinaryService,
   ) {}
 
   private computeSolved(positions: number[]) {
@@ -50,14 +53,22 @@ export class PuzzleService {
     const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000';
     const imageId = weekKey; // ✅ MISMA imagen/tiles toda la semana
 
-    const saved = await savePuzzleWeeklyAndSlice3x3({
-      inputBuffer: buffer,
-      weekKey,
-      imageId,
-      publicBaseUrl,
-      publicPrefix: '/public',
-      size: 1024,
-    });
+    const saved = this.cloudinary.isConfigured()
+      ? await savePuzzleWeeklyAndSlice3x3Cloudinary({
+          inputBuffer: buffer,
+          weekKey,
+          imageId,
+          cloudinary: this.cloudinary,
+          size: 1024,
+        })
+      : await savePuzzleWeeklyAndSlice3x3({
+          inputBuffer: buffer,
+          weekKey,
+          imageId,
+          publicBaseUrl,
+          publicPrefix: '/public',
+          size: 1024,
+        });
 
     cache = await this.cacheModel.create({
       weekKey,

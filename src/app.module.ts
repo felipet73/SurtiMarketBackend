@@ -18,6 +18,7 @@ import { PuzzleModule } from './puzzle/puzzle.module';
 import { StreakModule } from './streak/streak.module';
 import { EcoImpactModule } from './ecoimpact/ecoimpact.module';
 import { CommentsModule } from './comments/comments.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
@@ -29,6 +30,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
         uri: cfg.get<string>('MONGO_URI'),
       }),
     }),
+    CloudinaryModule,
     UsersModule,
     AuthModule,
     AdminModule,
