@@ -23,6 +23,7 @@ import { Role } from '../common/enums/role.enum';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { promises as fs } from 'fs';
 import { extname, join } from 'path';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 type UploadedProductImage = {
   size: number;
@@ -33,7 +34,10 @@ type UploadedProductImage = {
 
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly products: ProductsService) {}
+  constructor(
+    private readonly products: ProductsService,
+    private readonly cloudinary: CloudinaryService,
+  ) {}
 
   // CLIENT: lectura (pública o con auth si prefieres)
   @Get()
@@ -143,30 +147,76 @@ export class ProductsController {
     @UploadedFiles() files?: UploadedProductImage[],
   ) {
     if (!files?.length) throw new BadRequestException('Debes enviar al menos una imagen en "files"');
+    if (!this.cloudinary.isConfigured()) {
+      throw new BadRequestException('Cloudinary no configurado. Usa /products/:id/images-legacy o configura CLOUDINARY_*');
+    }
 
+    const urls = await this.uploadProductImagesToCloudinary(id, files);
+    return this.products.addImages(id, urls);
+  }
+
+  // Endpoint legacy (filesystem local /public)
+  @Post(':id/images-legacy')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @UseInterceptors(FilesInterceptor('files', 10))
+  async uploadImagesLegacy(
+    @Param('id') id: string,
+    @UploadedFiles() files?: UploadedProductImage[],
+  ) {
+    if (!files?.length) throw new BadRequestException('Debes enviar al menos una imagen en "files"');
+    const urls = await this.uploadProductImagesToLocalPublic(id, files);
+    return this.products.addImages(id, urls);
+  }
+
+  private validateProductImage(file: UploadedProductImage) {
     const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    if (file.size > 8 * 1024 * 1024) {
+      throw new BadRequestException('Cada imagen debe ser menor o igual a 8MB');
+    }
+    if (!allowed.has(file.mimetype)) {
+      throw new BadRequestException('Formato no permitido. Usa JPG, PNG o WEBP');
+    }
+  }
+
+  private getProductImageFormat(fileName: string) {
+    const ext = extname(fileName || '').toLowerCase();
+    if (ext === '.png') return 'png';
+    if (ext === '.webp') return 'webp';
+    return 'jpg';
+  }
+
+  private async uploadProductImagesToCloudinary(id: string, files: UploadedProductImage[]) {
+    const urls: string[] = [];
+    for (const file of files) {
+      this.validateProductImage(file);
+      const uploaded = await this.cloudinary.uploadImageBuffer({
+        buffer: file.buffer,
+        folder: `products/${id}`,
+        publicId: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        format: this.getProductImageFormat(file.originalname),
+        overwrite: false,
+      });
+      urls.push(uploaded.secureUrl);
+    }
+    return urls;
+  }
+
+  private async uploadProductImagesToLocalPublic(id: string, files: UploadedProductImage[]) {
     const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000';
     const dir = join(process.cwd(), 'public', 'products', id);
     await fs.mkdir(dir, { recursive: true });
 
     const urls: string[] = [];
     for (const file of files) {
-      if (file.size > 8 * 1024 * 1024) {
-        throw new BadRequestException('Cada imagen debe ser menor o igual a 8MB');
-      }
-      if (!allowed.has(file.mimetype)) {
-        throw new BadRequestException('Formato no permitido. Usa JPG, PNG o WEBP');
-      }
-
+      this.validateProductImage(file);
       const safeExt = extname(file.originalname || '').toLowerCase();
       const ext = safeExt && ['.jpg', '.jpeg', '.png', '.webp'].includes(safeExt) ? safeExt : '.jpg';
       const fileName = `${Date.now()}-${Math.random().toString(16).slice(2)}${ext}`;
       const fullPath = join(dir, fileName);
-
       await fs.writeFile(fullPath, file.buffer);
       urls.push(`${publicBaseUrl}/public/products/${id}/${fileName}`);
     }
-
-    return this.products.addImages(id, urls);
+    return urls;
   }
 }
